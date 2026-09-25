@@ -10,17 +10,17 @@ using OmenTools.Interop.Game.Models;
 
 namespace OmenTools.KamiToolKit.Addons.SelectYesno;
 
-public sealed unsafe class DRSelectYesno : NativeAddon
+public sealed unsafe class SelectYesnoAddon : NativeAddon
 {
-    public static DRSelectYesno Open
+    public static SelectYesnoAddon Open
     (
-        DRSelectYesnoOptions options
+        SelectYesnoAddonOptions options
     )
     {
         ArgumentNullException.ThrowIfNull(options);
         ValidateOptions(options);
 
-        var addon = new DRSelectYesno(options)
+        var addon = new SelectYesnoAddon(options)
         {
             InternalName              = "DRSelectYesno",
             Title                     = string.Empty,
@@ -86,14 +86,14 @@ public sealed unsafe class DRSelectYesno : NativeAddon
         PrimaryButton = new TextButtonNode
         {
             Size    = new(100.0f, 28.0f),
-            OnClick = () => Select(DRSelectYesnoResult.Yes)
+            OnClick = () => Select(SelectYesnoAddonResult.Yes)
         };
         PrimaryButton.AttachNode(this);
 
         SecondaryButton = new TextButtonNode
         {
             Size    = new(100.0f, 28.0f),
-            OnClick = () => Select(DRSelectYesnoResult.No)
+            OnClick = () => Select(SelectYesnoAddonResult.No)
         };
         SecondaryButton.AttachNode(this);
 
@@ -109,7 +109,7 @@ public sealed unsafe class DRSelectYesno : NativeAddon
             return;
 
         hasResult = true;
-        IFramework.Instance().RunOnTick(() => options.Callback?.Invoke(this, DRSelectYesnoResult.Closed), delayTicks: 1);
+        IFramework.Instance().RunOnTick(() => options.Callback?.Invoke(this, SelectYesnoAddonResult.Closed), delayTicks: 1);
     }
 
     protected override void OnUpdate
@@ -133,15 +133,15 @@ public sealed unsafe class DRSelectYesno : NativeAddon
         SecondaryButton = null;
     }
 
-    private DRSelectYesno
+    private SelectYesnoAddon
     (
-        DRSelectYesnoOptions options
+        SelectYesnoAddonOptions options
     )
         => this.options = options;
 
     private void ApplyOptions
     (
-        DRSelectYesnoOptions dialogOptions
+        SelectYesnoAddonOptions dialogOptions
     )
     {
         if (PromptNode is null || PrimaryButton is null || SecondaryButton is null)
@@ -154,8 +154,8 @@ public sealed unsafe class DRSelectYesno : NativeAddon
         SetButtonText(SecondaryButton, dialogOptions.NoButtonText,  4);
 
         var buttons       = dialogOptions.Buttons;
-        var showPrimary   = (buttons & DRSelectYesnoButtons.Yes) != 0;
-        var showSecondary = (buttons & DRSelectYesnoButtons.No)  != 0;
+        var showPrimary   = (buttons & SelectYesnoAddonButtons.Yes) != 0;
+        var showSecondary = (buttons & SelectYesnoAddonButtons.No)  != 0;
 
         PrimaryButton.IsVisible   = showPrimary;
         SecondaryButton.IsVisible = showSecondary;
@@ -266,7 +266,7 @@ public sealed unsafe class DRSelectYesno : NativeAddon
 
     private void Select
     (
-        DRSelectYesnoResult result
+        SelectYesnoAddonResult result
     )
     {
         if (hasResult)
@@ -280,17 +280,17 @@ public sealed unsafe class DRSelectYesno : NativeAddon
 
     private static void ValidateOptions
     (
-        DRSelectYesnoOptions options
+        SelectYesnoAddonOptions options
     )
     {
-        if ((options.Buttons & ~DRSelectYesnoButtons.Both) != 0)
+        if ((options.Buttons & ~SelectYesnoAddonButtons.Both) != 0)
             throw new ArgumentOutOfRangeException(nameof(options.Buttons));
 
         if (options.Position?.Position is { } position && (!float.IsFinite(position.X) || !float.IsFinite(position.Y)))
             throw new ArgumentOutOfRangeException(nameof(options.Position));
     }
 
-    private readonly DRSelectYesnoOptions options;
+    private readonly SelectYesnoAddonOptions options;
     private          Vector2?             openPosition;
     private          bool                 hasResult;
 

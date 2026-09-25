@@ -1,7 +1,7 @@
 namespace OmenTools.KamiToolKit.Addons.SelectYesno;
 
 [Flags]
-public enum DRSelectYesnoButtons : byte
+public enum SelectYesnoAddonButtons : byte
 {
     None = 0,
     Yes  = 1,

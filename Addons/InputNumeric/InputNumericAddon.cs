@@ -8,23 +8,23 @@ using Lumina.Text.ReadOnly;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Models;
 
-namespace OmenTools.KamiToolKit.Addons.InputString;
+namespace OmenTools.KamiToolKit.Addons.InputNumeric;
 
-public sealed unsafe class DRInputString : NativeAddon
+public sealed unsafe class InputNumericAddon : NativeAddon
 {
-    public static DRInputString Open
+    public static InputNumericAddon Open
     (
-        DRInputStringOptions options
+        InputNumericAddonOptions options
     )
     {
         ArgumentNullException.ThrowIfNull(options);
         ValidateOptions(options);
 
-        var addon = new DRInputString(options)
+        var addon = new InputNumericAddon(options)
         {
-            InternalName              = "DRInputString",
+            InternalName              = "DRInputNumeric",
             Title                     = string.Empty,
-            Size                      = new Vector2(WINDOW_WIDTH, 154.0f),
+            Size                      = new Vector2(280.0f, 130.0f),
             OpenInBounds              = true,
             OpenWindowSoundEffectId   = options.OpenSoundEffectID,
             RespectCloseAll           = options.RespectCloseAll,
@@ -54,10 +54,10 @@ public sealed unsafe class DRInputString : NativeAddon
     }
 
     /// <summary>
-    /// Gets the text currently entered.
+    /// Gets the current value of the numeric input.
     /// </summary>
-    public string Value
-        => InputNode?.String.ToString() ?? string.Empty;
+    public int Value
+        => InputNode?.Value ?? 0;
 
     protected override void OnSetup
     (
@@ -79,44 +79,31 @@ public sealed unsafe class DRInputString : NativeAddon
 
         PromptNode = new TextNode
         {
-            Size             = new(PROMPT_WIDTH, 0.0f),
+            Size             = new(224.0f, 0.0f),
             TextColor        = ColorHelper.GetColor(8),
             TextOutlineColor = ColorHelper.GetColor(7),
-            FontSize         = 14,
+            FontSize         = 12,
             FontType         = FontType.Axis,
-            LineSpacing      = 21,
+            LineSpacing      = 18,
             AlignmentType    = options.PromptAlignment
         };
         PromptNode.AddTextFlags(TextFlags.WordWrap, TextFlags.MultiLine);
         PromptNode.AttachNode(this);
 
-        LabelNode = new TextNode
-        {
-            Size             = new(LABEL_WIDTH, LABEL_HEIGHT),
-            TextColor        = ColorHelper.GetColor(3),
-            TextOutlineColor = ColorHelper.GetColor(7),
-            FontSize         = 12,
-            FontType         = FontType.Axis
-        };
-        LabelNode.AttachNode(this);
-
-        InputNode = new TextInputNode();
+        InputNode = new NumericInputNode();
         InputNode.AttachNode(this);
-
-        InputNode.OnInputComplete = _ => Select(DRInputStringResult.Confirmed);
-        InputNode.OnEscapeEntered = () => Select(DRInputStringResult.Cancelled);
 
         ConfirmButton = new TextButtonNode
         {
-            Size    = new(BUTTON_WIDTH, BUTTON_HEIGHT),
-            OnClick = () => Select(DRInputStringResult.Confirmed)
+            Size    = new(100.0f, 28.0f),
+            OnClick = () => Select(InputNumericAddonResult.Confirmed)
         };
         ConfirmButton.AttachNode(this);
 
         CancelButton = new TextButtonNode
         {
-            Size    = new(BUTTON_WIDTH, BUTTON_HEIGHT),
-            OnClick = () => Select(DRInputStringResult.Cancelled)
+            Size    = new(100.0f, 28.0f),
+            OnClick = () => Select(InputNumericAddonResult.Cancelled)
         };
         CancelButton.AttachNode(this);
 
@@ -132,7 +119,7 @@ public sealed unsafe class DRInputString : NativeAddon
             return;
 
         hasResult = true;
-        IFramework.Instance().RunOnTick(() => options.Callback?.Invoke(this, DRInputStringResult.Closed), delayTicks: 1);
+        IFramework.Instance().RunOnTick(() => options.Callback?.Invoke(this, InputNumericAddonResult.Closed), delayTicks: 1);
     }
 
     protected override void OnUpdate
@@ -152,65 +139,58 @@ public sealed unsafe class DRInputString : NativeAddon
     )
     {
         PromptNode    = null;
-        LabelNode     = null;
         InputNode     = null;
         ConfirmButton = null;
         CancelButton  = null;
     }
 
-    private DRInputString
+    private InputNumericAddon
     (
-        DRInputStringOptions options
+        InputNumericAddonOptions options
     )
         => this.options = options;
 
     private void ApplyOptions
     (
-        DRInputStringOptions dialogOptions
+        InputNumericAddonOptions dialogOptions
     )
     {
-        if (PromptNode is null || LabelNode is null || InputNode is null || ConfirmButton is null || CancelButton is null)
+        if (PromptNode is null || InputNode is null || ConfirmButton is null || CancelButton is null)
             return;
 
         PromptNode.AlignmentType = dialogOptions.PromptAlignment;
         PromptNode.String        = dialogOptions.Prompt;
 
-        var hasLabel = dialogOptions.Label is not null;
-
-        LabelNode.IsVisible = hasLabel;
-        LabelNode.String    = dialogOptions.Label ?? string.Empty;
-
         SetButtonText(ConfirmButton, dialogOptions.ConfirmButtonText, 572);
         SetButtonText(CancelButton,  dialogOptions.CancelButtonText,  2);
 
-        InputNode.String            = dialogOptions.Value ?? string.Empty;
-        InputNode.PlaceholderString = dialogOptions.Placeholder;
-        InputNode.MaxCharacters     = dialogOptions.MaxCharacters;
-        InputNode.ShowLimitText     = dialogOptions.MaxCharacters > 0;
+        InputNode.Min   = dialogOptions.Min;
+        InputNode.Max   = dialogOptions.Max;
+        InputNode.Step  = dialogOptions.Step;
+        InputNode.Value = dialogOptions.Value;
 
-        PromptNode.Size = new(PROMPT_WIDTH, 0.0f);
+        PromptNode.Size = new(224.0f, 0.0f);
         var promptHeight = PromptNode.GetTextDrawSize().Y;
 
-        var labelY  = PROMPT_Y + promptHeight + PROMPT_TO_LABEL_GAP;
-        var inputY  = hasLabel ? labelY + LABEL_TO_INPUT_GAP : labelY;
-        var buttonY = inputY + INPUT_HEIGHT + INPUT_TO_BUTTON_GAP;
-        var height  = buttonY + BUTTON_HEIGHT + BOTTOM_PADDING;
+        var inputY  = 22.0f + promptHeight + 8.0f;
+        var buttonY = inputY + 28.0f + 10.0f;
+        var height  = buttonY + 28.0f + 18.0f;
 
-        SetWindowSize(WINDOW_WIDTH, height);
+        SetWindowSize(280.0f, height);
 
-        PromptNode.Size     = new Vector2(PROMPT_WIDTH, promptHeight);
-        PromptNode.Position = new Vector2(PROMPT_X,     PROMPT_Y);
+        PromptNode.Size     = new Vector2(224.0f, promptHeight);
+        PromptNode.Position = new Vector2(28.0f,  22.0f);
 
-        LabelNode.Size     = new Vector2(LABEL_WIDTH, LABEL_HEIGHT);
-        LabelNode.Position = new Vector2(LABEL_X,     labelY);
+        InputNode.Size     = new Vector2(146.0f, 28.0f);
+        InputNode.Position = new Vector2(67.0f,  inputY);
 
-        InputNode.Size     = new Vector2(INPUT_WIDTH, INPUT_HEIGHT);
-        InputNode.Position = new Vector2(INPUT_X,     inputY);
+        const float BUTTON_WIDTH = 100.0f;
+        const float BUTTON_GAP   = 8.0f;
 
         var totalButtonWidth = (BUTTON_WIDTH * 2.0f) + BUTTON_GAP;
-        var buttonLeft       = (WINDOW_WIDTH - totalButtonWidth) / 2.0f;
+        var buttonLeft       = (280.0f - totalButtonWidth) / 2.0f;
 
-        ConfirmButton.Position = new Vector2(buttonLeft, buttonY);
+        ConfirmButton.Position = new Vector2(buttonLeft,  buttonY);
         CancelButton.Position  = new Vector2(buttonLeft + BUTTON_WIDTH + BUTTON_GAP, buttonY);
 
         ConfirmButton.NavIndex = 1;
@@ -267,7 +247,7 @@ public sealed unsafe class DRInputString : NativeAddon
 
     private void Select
     (
-        DRInputStringResult result
+        InputNumericAddonResult result
     )
     {
         if (hasResult)
@@ -281,41 +261,25 @@ public sealed unsafe class DRInputString : NativeAddon
 
     private static void ValidateOptions
     (
-        DRInputStringOptions options
+        InputNumericAddonOptions options
     )
     {
-        if (options.MaxCharacters < 0)
-            throw new ArgumentOutOfRangeException(nameof(options.MaxCharacters));
+        if (options.Min > options.Max)
+            throw new ArgumentOutOfRangeException(nameof(options.Min));
+
+        if (options.Step <= 0)
+            throw new ArgumentOutOfRangeException(nameof(options.Step));
 
         if (options.Position?.Position is { } position && (!float.IsFinite(position.X) || !float.IsFinite(position.Y)))
             throw new ArgumentOutOfRangeException(nameof(options.Position));
     }
 
-    private const float WINDOW_WIDTH         = 320.0f;
-    private const float PROMPT_X             = 17.0f;
-    private const float PROMPT_Y             = 15.0f;
-    private const float PROMPT_WIDTH         = 276.0f;
-    private const float LABEL_X              = 18.0f;
-    private const float LABEL_WIDTH          = 284.0f;
-    private const float LABEL_HEIGHT         = 21.0f;
-    private const float INPUT_X              = 17.0f;
-    private const float INPUT_WIDTH          = 286.0f;
-    private const float INPUT_HEIGHT         = 28.0f;
-    private const float BUTTON_WIDTH         = 100.0f;
-    private const float BUTTON_HEIGHT        = 28.0f;
-    private const float BUTTON_GAP           = 8.0f;
-    private const float PROMPT_TO_LABEL_GAP  = 18.0f;
-    private const float LABEL_TO_INPUT_GAP   = 16.0f;
-    private const float INPUT_TO_BUTTON_GAP  = 10.0f;
-    private const float BOTTOM_PADDING       = 18.0f;
-
-    private readonly DRInputStringOptions options;
+    private readonly InputNumericAddonOptions options;
     private          Vector2?             openPosition;
     private          bool                 hasResult;
 
-    private TextNode?       PromptNode    { get; set; }
-    private TextNode?       LabelNode     { get; set; }
-    private TextInputNode?  InputNode     { get; set; }
-    private TextButtonNode? ConfirmButton { get; set; }
-    private TextButtonNode? CancelButton  { get; set; }
+    private TextNode?         PromptNode    { get; set; }
+    private NumericInputNode? InputNode     { get; set; }
+    private TextButtonNode?   ConfirmButton { get; set; }
+    private TextButtonNode?   CancelButton  { get; set; }
 }

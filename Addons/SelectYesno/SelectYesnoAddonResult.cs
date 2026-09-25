@@ -1,6 +1,6 @@
 namespace OmenTools.KamiToolKit.Addons.SelectYesno;
 
-public enum DRSelectYesnoResult : byte
+public enum SelectYesnoAddonResult : byte
 {
     Yes,
     No,

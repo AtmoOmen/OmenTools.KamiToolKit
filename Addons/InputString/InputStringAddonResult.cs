@@ -1,6 +1,6 @@
 namespace OmenTools.KamiToolKit.Addons.InputString;
 
-public enum DRInputStringResult : byte
+public enum InputStringAddonResult : byte
 {
     Confirmed,
     Cancelled,

@@ -2,35 +2,29 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Text.ReadOnly;
 using OmenTools.Interop.Game.Models;
 
-namespace OmenTools.KamiToolKit.Addons.InputNumeric;
+namespace OmenTools.KamiToolKit.Addons.SelectYesno;
 
-public sealed record DRInputNumericOptions
+public sealed record SelectYesnoAddonOptions
 {
     public required ReadOnlySeString Prompt { get; init; }
 
-    public int Value { get; init; }
+    public SelectYesnoAddonButtons Buttons { get; init; } = SelectYesnoAddonButtons.Both;
 
-    public int Min { get; init; }
+    public ReadOnlySeString? YesButtonText { get; init; }
 
-    public int Max { get; init; } = int.MaxValue;
-
-    public int Step { get; init; } = 1;
+    public ReadOnlySeString? NoButtonText { get; init; }
 
     public AlignmentType PromptAlignment { get; init; } = AlignmentType.Left;
-
-    public ReadOnlySeString? ConfirmButtonText { get; init; }
-
-    public ReadOnlySeString? CancelButtonText { get; init; }
 
     public bool RespectCloseAll { get; init; } = true;
 
     public AddonPosition? Position { get; init; }
 
     public int OpenSoundEffectID { get; init; } = 23;
-
+    
     public ushort ParentID { get; init; }
-
+    
     public ushort BlockedParentID { get; init; }
 
-    public Action<DRInputNumeric, DRInputNumericResult>? Callback { get; init; }
+    public Action<SelectYesnoAddon, SelectYesnoAddonResult>? Callback { get; init; }
 }

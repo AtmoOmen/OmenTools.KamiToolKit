@@ -1,6 +1,6 @@
 namespace OmenTools.KamiToolKit.Addons.InputNumeric;
 
-public enum DRInputNumericResult : byte
+public enum InputNumericAddonResult : byte
 {
     Confirmed,
     Cancelled,

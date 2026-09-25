@@ -4,7 +4,7 @@ using OmenTools.Interop.Game.Models;
 
 namespace OmenTools.KamiToolKit.Addons.InputString;
 
-public sealed record DRInputStringOptions
+public sealed record InputStringAddonOptions
 {
     public required ReadOnlySeString Prompt { get; init; }
 
@@ -32,5 +32,5 @@ public sealed record DRInputStringOptions
 
     public ushort BlockedParentID { get; init; }
 
-    public Action<DRInputString, DRInputStringResult>? Callback { get; init; }
+    public Action<InputStringAddon, InputStringAddonResult>? Callback { get; init; }
 }
