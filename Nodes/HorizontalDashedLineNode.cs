@@ -1,7 +1,7 @@
 using KamiToolKit.Nodes.Simplified;
 using WrapMode = KamiToolKit.Enums.WrapMode;
 
-namespace DailyRoutines.Common.KamiToolKit.Nodes;
+namespace OmenTools.KamiToolKit.Nodes;
 
 public sealed class HorizontalDashedLineNode : SimpleImageNode
 {

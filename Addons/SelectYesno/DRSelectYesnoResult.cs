@@ -1,4 +1,4 @@
-namespace DailyRoutines.Common.KamiToolKit.Addons.SelectYesno;
+namespace OmenTools.KamiToolKit.Addons.SelectYesno;
 
 public enum DRSelectYesnoResult : byte
 {

@@ -1,6 +1,6 @@
 ﻿using KamiToolKit.Nodes.Simplified;
 
-namespace DailyRoutines.Common.KamiToolKit.Nodes;
+namespace OmenTools.KamiToolKit.Nodes;
 
 public class InfoMarkerNode : SimpleNineGridNode
 {

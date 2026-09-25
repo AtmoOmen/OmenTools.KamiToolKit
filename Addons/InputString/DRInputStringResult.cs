@@ -1,4 +1,4 @@
-namespace DailyRoutines.Common.KamiToolKit.Addons.InputString;
+namespace OmenTools.KamiToolKit.Addons.InputString;
 
 public enum DRInputStringResult : byte
 {

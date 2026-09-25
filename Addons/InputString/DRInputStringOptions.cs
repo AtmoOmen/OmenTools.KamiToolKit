@@ -2,7 +2,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Text.ReadOnly;
 using OmenTools.Interop.Game.Models;
 
-namespace DailyRoutines.Common.KamiToolKit.Addons.InputString;
+namespace OmenTools.KamiToolKit.Addons.InputString;
 
 public sealed record DRInputStringOptions
 {

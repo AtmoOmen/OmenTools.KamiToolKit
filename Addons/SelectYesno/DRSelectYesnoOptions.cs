@@ -2,7 +2,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Text.ReadOnly;
 using OmenTools.Interop.Game.Models;
 
-namespace DailyRoutines.Common.KamiToolKit.Addons.SelectYesno;
+namespace OmenTools.KamiToolKit.Addons.SelectYesno;
 
 public sealed record DRSelectYesnoOptions
 {

@@ -7,7 +7,7 @@ using KamiToolKit.BaseTypes;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 
-namespace DailyRoutines.Common.KamiToolKit.Addons;
+namespace OmenTools.KamiToolKit.Addons;
 
 public abstract unsafe class AttachedAddon : NativeAddon
 {

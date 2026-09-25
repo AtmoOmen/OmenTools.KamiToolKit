@@ -1,6 +1,5 @@
 using System.Numerics;
 using Dalamud.Plugin.Services;
-using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
 using KamiToolKit.Classes;
@@ -9,7 +8,7 @@ using Lumina.Text.ReadOnly;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Models;
 
-namespace DailyRoutines.Common.KamiToolKit.Addons.SelectYesno;
+namespace OmenTools.KamiToolKit.Addons.SelectYesno;
 
 public sealed unsafe class DRSelectYesno : NativeAddon
 {

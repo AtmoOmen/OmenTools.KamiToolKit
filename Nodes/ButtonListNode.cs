@@ -5,7 +5,7 @@ using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
 using KamiToolKit.Timelines;
 
-namespace DailyRoutines.Common.KamiToolKit.Nodes;
+namespace OmenTools.KamiToolKit.Nodes;
 
 public abstract class ButtonListNode : SimpleComponentNode;
 

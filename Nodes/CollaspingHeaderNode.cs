@@ -5,7 +5,7 @@ using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
 using Lumina.Text.ReadOnly;
 
-namespace DailyRoutines.Common.KamiToolKit.Nodes;
+namespace OmenTools.KamiToolKit.Nodes;
 
 public class CollaspingHeaderNode : ResNode {
 

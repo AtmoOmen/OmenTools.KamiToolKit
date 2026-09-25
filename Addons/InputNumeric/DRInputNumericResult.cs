@@ -1,4 +1,4 @@
-namespace DailyRoutines.Common.KamiToolKit.Addons.InputNumeric;
+namespace OmenTools.KamiToolKit.Addons.InputNumeric;
 
 public enum DRInputNumericResult : byte
 {

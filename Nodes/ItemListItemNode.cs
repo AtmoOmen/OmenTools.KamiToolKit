@@ -5,7 +5,7 @@ using KamiToolKit.Interfaces;
 using KamiToolKit.Nodes;
 using Lumina.Excel.Sheets;
 
-namespace DailyRoutines.Common.KamiToolKit.Nodes;
+namespace OmenTools.KamiToolKit.Nodes;
 
 public class ItemListItemNode : ListItemNode<Item>, IListItemNode
 {
