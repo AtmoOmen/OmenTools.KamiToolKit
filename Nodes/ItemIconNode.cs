@@ -8,6 +8,7 @@ using OmenTools.Interop.Game.Lumina;
 
 namespace OmenTools.KamiToolKit.Nodes;
 
+/// <inheritdoc/>
 public class ItemIconNode : IconNode
 {
     /// <summary>
