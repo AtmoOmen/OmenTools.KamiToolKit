@@ -7,7 +7,7 @@ using KamiToolKit.Nodes.Simplified;
 using KamiToolKit.Timelines;
 using Lumina.Text.ReadOnly;
 
-namespace OmenTools.KamiToolKit.Nodes;
+namespace OmenTools.KamiToolKit.Nodes.Collasping;
 
 public unsafe class CollaspingCategoryNode : ResNode {
 

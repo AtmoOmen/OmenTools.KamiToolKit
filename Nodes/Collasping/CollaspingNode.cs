@@ -1,7 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using KamiToolKit.Nodes;
 
-namespace OmenTools.KamiToolKit.Nodes;
+namespace OmenTools.KamiToolKit.Nodes.Collasping;
 
 public class CollaspingNode : ResNode {
 
