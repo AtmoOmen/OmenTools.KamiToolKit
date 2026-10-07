@@ -4,12 +4,15 @@ using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
+using KamiToolKit.Controllers;
+using KamiToolKit.Enums;
+using KamiToolKit.Nodes;
+using KamiToolKit.Nodes.Simplified;
 using OmenTools.Extensions;
-using OmenTools.Interop.Game.Helpers;
 
 namespace OmenTools.KamiToolKit.Addons;
 
-public abstract unsafe class AttachedAddon : NativeAddon
+public abstract class AttachedAddon : NativeChildAddon
 {
     protected virtual AttachedAddonPosition AttachPosition =>
         AttachedAddonPosition.LeftTop;
@@ -20,47 +23,71 @@ public abstract unsafe class AttachedAddon : NativeAddon
     protected virtual bool CanOpenAddon =>
         true;
 
-    protected AtkUnitBase* HostAddon =>
-        AddonHelper.GetByName(hostAddonName);
+    public override Vector2 ContentStartPosition =>
+        new Vector2(4f, 4f) + ContentPadding;
 
-    private readonly string hostAddonName;
-    private readonly bool   runSetupForCurrentHostAddon;
+    public override Vector2 ContentSize =>
+        Size - new Vector2(8f, 16f) - (ContentPadding * 2f);
 
-    private bool isClosingAddonOnly;
+    protected unsafe AtkUnitBase* HostAddon =>
+        Controller.ParentAddon;
 
-    protected AttachedAddon
+    private WindowBackgroundTextureNode? backgroundTexture;
+    private SimpleImageNode?             backgroundImage;
+
+    private bool isDisposed;
+
+    protected unsafe AttachedAddon
     (
         string              hostAddon,
         params AddonEvent[] hostAddonEvents
-    )
+    ) : base(NativeAddonController.GetOrCreate(hostAddon))
     {
-        hostAddonName               = hostAddon;
-        runSetupForCurrentHostAddon = hostAddonEvents.Contains(AddonEvent.PostSetup);
+        ContentPadding = new Vector2(8f, 8f);
 
-        foreach (var eventType in new[] { AddonEvent.PostDraw, AddonEvent.PreFinalize }.Concat(hostAddonEvents).Distinct())
+        foreach (var eventType in new[] { AddonEvent.PostDraw, AddonEvent.PostClose, AddonEvent.PreFinalize }.Concat(hostAddonEvents).Distinct())
             IAddonLifecycle.Instance().RegisterListener(eventType, hostAddon, OnHostAddonLifecycle);
 
         IFramework.Instance().RunOnTick
         (() =>
             {
-                if (!HostAddon->IsAddonAndNodesReady())
+                if (isDisposed || !HostAddon->IsAddonAndNodesReady())
                     return;
 
-                if (runSetupForCurrentHostAddon)
+                if (hostAddonEvents.Contains(AddonEvent.PostSetup))
                     OnHostAddon(AddonEvent.PostSetup, null);
 
                 if (CanOpenAddon)
-                    OpenAddon();
+                    Open();
             }
         );
     }
 
     public override void Dispose()
     {
-        IAddonLifecycle.Instance().UnregisterListener(OnHostAddonLifecycle);
+        if (!ReleaseHostEvents())
+            return;
 
-        isClosingAddonOnly = true;
         base.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        if (await IFramework.Instance().Run(ReleaseHostEvents))
+            await base.DisposeAsync();
+
+        GC.SuppressFinalize(this);
+    }
+
+    public override unsafe void Close()
+    {
+        var hostAddon = HostAddon;
+        var closeHost = !isDisposed && IsRequestedOpen && hostAddon is not null;
+        base.Close();
+
+        if (closeHost && HostAddon == hostAddon)
+            hostAddon->Close(true);
     }
 
     protected virtual void OnHostAddon
@@ -71,7 +98,7 @@ public abstract unsafe class AttachedAddon : NativeAddon
     {
     }
 
-    protected virtual void OnAttachedAddonUpdate
+    protected virtual unsafe void OnAttachedAddonUpdate
     (
         AtkUnitBase* addon,
         AtkUnitBase* hostAddon
@@ -79,74 +106,84 @@ public abstract unsafe class AttachedAddon : NativeAddon
     {
     }
 
-    protected virtual void OnAttachedAddonFinalize
+    protected virtual unsafe void OnAttachedAddonFinalize
     (
         AtkUnitBase* addon
     )
     {
     }
 
-    protected virtual bool CanCloseHostAddon
-    (
-        AtkUnitBase* hostAddon
-    ) =>
-        hostAddon != null && hostAddon->IsVisible;
-
-    protected sealed override void OnUpdate
+    protected sealed override unsafe void OnUpdate
     (
         AtkUnitBase* addon
     )
     {
         var hostAddon = HostAddon;
 
-        if (!HostAddon->IsAddonAndNodesReady())
-        {
-            CloseAddonOnly();
+        if (!hostAddon->IsAddonAndNodesReady())
             return;
+
+        if (backgroundTexture is null)
+        {
+            backgroundTexture = new WindowBackgroundTextureNode(false)
+            {
+                Offsets         = new(64f, 32f, 32f, 32f),
+                NodeFlags       = NodeFlags.AnchorTop | NodeFlags.AnchorLeft | NodeFlags.Visible | NodeFlags.Enabled | NodeFlags.Fill,
+                PartsRenderType = 19,
+                Size            = Size
+            };
+            backgroundTexture.AttachNode(this, NodePosition.AsFirstChild);
+
+            backgroundImage = new SimpleImageNode
+            {
+                IsVisible          = true,
+                WrapMode           = WrapMode.Stretch,
+                TexturePath        = "ui/uld/WindowA_Gradation.tex",
+                TextureCoordinates = new(6f,  2f),
+                TextureSize        = new(24f, 24f),
+                Position           = new(4f,  4f)
+            };
+            backgroundImage.AttachNode(backgroundTexture, NodePosition.AfterTarget);
         }
 
-        var hostPosition = new Vector2(hostAddon->RootNode->ScreenX,    hostAddon->RootNode->ScreenY);
-        var hostSize     = new Vector2(hostAddon->GetScaledWidth(true), hostAddon->GetScaledHeight(true));
-        var addonSize    = new Vector2(addon->GetScaledWidth(true),     addon->GetScaledHeight(true));
+        var hostSize  = new Vector2(hostAddon->GetScaledWidth(true), hostAddon->GetScaledHeight(true)) / addon->Scale;
+        var addonSize = new Vector2(addon->GetScaledWidth(true),     addon->GetScaledHeight(true))     / addon->Scale;
 
         var position = AttachPosition switch
         {
-            AttachedAddonPosition.LeftTop      => new(hostPosition.X - addonSize.X, hostPosition.Y),
-            AttachedAddonPosition.LeftCenter   => new(hostPosition.X - addonSize.X, hostPosition.Y              + (hostSize.Y - addonSize.Y) / 2f),
-            AttachedAddonPosition.LeftBottom   => new(hostPosition.X - addonSize.X, hostPosition.Y + hostSize.Y - addonSize.Y),
-            AttachedAddonPosition.TopLeft      => hostPosition with { Y = hostPosition.Y - addonSize.Y },
-            AttachedAddonPosition.TopCenter    => new(hostPosition.X              + (hostSize.X - addonSize.X) / 2f, hostPosition.Y - addonSize.Y),
-            AttachedAddonPosition.TopRight     => new(hostPosition.X + hostSize.X - addonSize.X, hostPosition.Y                     - addonSize.Y),
-            AttachedAddonPosition.RightTop     => new(hostPosition.X              + hostSize.X, hostPosition.Y),
-            AttachedAddonPosition.RightCenter  => new(hostPosition.X              + hostSize.X, hostPosition.Y              + (hostSize.Y - addonSize.Y) / 2f),
-            AttachedAddonPosition.RightBottom  => new(hostPosition.X              + hostSize.X, hostPosition.Y + hostSize.Y - addonSize.Y),
-            AttachedAddonPosition.BottomLeft   => hostPosition with { Y = hostPosition.Y + hostSize.Y },
-            AttachedAddonPosition.BottomCenter => new(hostPosition.X              + (hostSize.X - addonSize.X) / 2f, hostPosition.Y + hostSize.Y),
-            AttachedAddonPosition.BottomRight  => new(hostPosition.X + hostSize.X - addonSize.X, hostPosition.Y                     + hostSize.Y),
-            _                                  => hostPosition
+            AttachedAddonPosition.LeftTop      => new(-addonSize.X, 0),
+            AttachedAddonPosition.LeftCenter   => new(-addonSize.X, (hostSize.Y - addonSize.Y) / 2f),
+            AttachedAddonPosition.LeftBottom   => new(-addonSize.X, hostSize.Y - addonSize.Y),
+            AttachedAddonPosition.TopLeft      => new(0, -addonSize.Y),
+            AttachedAddonPosition.TopCenter    => new((hostSize.X - addonSize.X) / 2f, -addonSize.Y),
+            AttachedAddonPosition.TopRight     => new(hostSize.X - addonSize.X, -addonSize.Y),
+            AttachedAddonPosition.RightTop     => hostSize with { Y = 0 },
+            AttachedAddonPosition.RightCenter  => hostSize with { Y = (hostSize.Y - addonSize.Y) / 2f },
+            AttachedAddonPosition.RightBottom  => hostSize with { Y = hostSize.Y - addonSize.Y },
+            AttachedAddonPosition.BottomLeft   => hostSize with { X = 0 },
+            AttachedAddonPosition.BottomCenter => hostSize with { X = (hostSize.X - addonSize.X) / 2f },
+            AttachedAddonPosition.BottomRight  => hostSize with { X = hostSize.X - addonSize.X },
+            _                                  => Vector2.Zero
         };
 
-        SetWindowPosition(position + PositionOffset);
+        LocalPosition = position + (PositionOffset / addon->Scale);
         OnAttachedAddonUpdate(addon, hostAddon);
+        backgroundTexture.Size = Size;
+        backgroundImage?.Size  = Vector2.Max(Size - new Vector2(8f, 16f), Vector2.Zero);
     }
 
-    protected sealed override void OnFinalize
+    protected sealed override unsafe void OnFinalize
     (
         AtkUnitBase* addon
     )
     {
+        backgroundImage?.Dispose();
+        backgroundImage = null;
+        
+        backgroundTexture?.Dispose();
+        backgroundTexture = null;
+        
         OnAttachedAddonFinalize(addon);
-
-        if (isClosingAddonOnly)
-        {
-            isClosingAddonOnly = false;
-            return;
-        }
-
-        var hostAddon = HostAddon;
-        if (!CanCloseHostAddon(hostAddon)) return;
-
-        hostAddon->Close(true);
     }
 
     private void OnHostAddonLifecycle
@@ -159,28 +196,24 @@ public abstract unsafe class AttachedAddon : NativeAddon
 
         switch (type)
         {
-            case AddonEvent.PostDraw when CanOpenAddon:
-                OpenAddon();
+            case AddonEvent.PostDraw when !IsRequestedOpen && CanOpenAddon:
+                Open();
                 break;
+            case AddonEvent.PostClose:
             case AddonEvent.PreFinalize:
-                CloseAddonOnly();
+                Close();
                 break;
         }
     }
 
-    protected void CloseAddonOnly()
+    private bool ReleaseHostEvents()
     {
-        if (!IsOpen) return;
+        if (isDisposed)
+            return false;
 
-        isClosingAddonOnly = true;
-        Close();
-    }
-
-    private void OpenAddon()
-    {
-        if (IsOpen || !HostAddon->IsAddonAndNodesReady()) return;
-
-        Open();
+        isDisposed = true;
+        IAddonLifecycle.Instance().UnregisterListener(OnHostAddonLifecycle);
+        return true;
     }
 
     public enum AttachedAddonPosition
