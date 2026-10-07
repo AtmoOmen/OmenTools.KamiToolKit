@@ -80,16 +80,6 @@ public abstract class AttachedAddon : NativeChildAddon
         GC.SuppressFinalize(this);
     }
 
-    public override unsafe void Close()
-    {
-        var hostAddon = HostAddon;
-        var closeHost = !isDisposed && IsRequestedOpen && hostAddon is not null;
-        base.Close();
-
-        if (closeHost && HostAddon == hostAddon)
-            hostAddon->Close(true);
-    }
-
     protected virtual void OnHostAddon
     (
         AddonEvent type,
@@ -196,12 +186,14 @@ public abstract class AttachedAddon : NativeChildAddon
 
         switch (type)
         {
-            case AddonEvent.PostDraw when !IsRequestedOpen && CanOpenAddon:
-                Open();
-                break;
+            case AddonEvent.PostDraw when IsOpen && !CanOpenAddon:
             case AddonEvent.PostClose:
             case AddonEvent.PreFinalize:
                 Close();
+                break;
+            
+            case AddonEvent.PostDraw when !IsRequestedOpen && CanOpenAddon:
+                Open();
                 break;
         }
     }
