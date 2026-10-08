@@ -27,7 +27,7 @@ public abstract class AttachedAddon : NativeAddon
     /// <remarks>当 HostAddon 关闭时，一定会跟随关闭。</remarks>
     protected virtual bool AutoOpenAddon =>
         true;
-    
+
     protected virtual bool CanOpenAddon =>
         true;
 
@@ -167,15 +167,15 @@ public abstract class AttachedAddon : NativeAddon
                 IsVisible          = true,
                 WrapMode           = WrapMode.Stretch,
                 TexturePath        = "ui/uld/WindowA_Gradation.tex",
-                TextureCoordinates = new(6f,  2f),
+                TextureCoordinates = new(6f, 2f),
                 TextureSize        = new(24f, 24f),
-                Position           = new(4f,  4f)
+                Position           = new(4f, 4f)
             };
-            backgroundImage.AttachNode(backgroundTexture, NodePosition.AfterTarget);
+            backgroundImage.AttachNode(backgroundTexture);
         }
 
-        var hostSize  = new Vector2(host->GetScaledWidth(true), host->GetScaledHeight(true)) / addon->Scale;
-        var addonSize = new Vector2(addon->GetScaledWidth(true),     addon->GetScaledHeight(true))     / addon->Scale;
+        var hostSize  = new Vector2(host->GetScaledWidth(true),  host->GetScaledHeight(true))  / addon->Scale;
+        var addonSize = new Vector2(addon->GetScaledWidth(true), addon->GetScaledHeight(true)) / addon->Scale;
 
         var position = AttachPosition switch
         {
@@ -195,11 +195,13 @@ public abstract class AttachedAddon : NativeAddon
         };
 
         var hostPosition = host->RootNode == null ?
-                               new Vector2(host->X, host->Y) :
+                               new Vector2(host->X,           host->Y) :
                                new Vector2(host->RootNode->X, host->RootNode->Y);
         SetWindowPosition(hostPosition + (position * addon->Scale) + PositionOffset);
-        backgroundTexture.Size = Size;
-        backgroundImage?.Size  = Vector2.Max(Size - new Vector2(8f, 16f), Vector2.Zero);
+        var backgroundHeight = MathF.Max(Size.Y, backgroundTexture.PartsList[0]->Height + backgroundTexture.PartsList[6]->Height);
+        backgroundTexture.Size   = Size with { Y = backgroundHeight };
+        backgroundTexture.ScaleY = Size.Y / backgroundHeight;
+        backgroundImage?.Size    = Vector2.Max(backgroundTexture.Size - new Vector2(8f, 16f), Vector2.Zero);
     }
 
     /// <remarks>继承必须要调用 base.OnFinalize(...)</remarks>
@@ -217,7 +219,7 @@ public abstract class AttachedAddon : NativeAddon
         isClosing = true;
         backgroundImage?.Dispose();
         backgroundImage = null;
-        
+
         backgroundTexture?.Dispose();
         backgroundTexture = null;
     }
@@ -263,6 +265,7 @@ public abstract class AttachedAddon : NativeAddon
                 }
                 else if (IsRequestedOpen && !IsAllocated)
                     Open();
+
                 break;
         }
     }
@@ -282,6 +285,7 @@ public abstract class AttachedAddon : NativeAddon
 
         isClosing = false;
         AllocateAddon();
+
         if (InternalAddon == null)
         {
             IsRequestedOpen = false;
@@ -330,7 +334,7 @@ public abstract class AttachedAddon : NativeAddon
         if (isDisposed)
             return false;
 
-        isDisposed = true;
+        isDisposed      = true;
         IsRequestedOpen = false;
         openCompletion.TrySetCanceled();
         IAddonLifecycle.Instance().UnregisterListener(OnHostAddonLifecycle);
