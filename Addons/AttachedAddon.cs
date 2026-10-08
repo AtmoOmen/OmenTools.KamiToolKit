@@ -4,7 +4,6 @@ using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
-using KamiToolKit.Controllers;
 using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
@@ -12,7 +11,7 @@ using OmenTools.Extensions;
 
 namespace OmenTools.KamiToolKit.Addons;
 
-public abstract class AttachedAddon : NativeChildAddon
+public abstract class AttachedAddon : NativeAddon
 {
     protected virtual AttachedAddonPosition AttachPosition =>
         AttachedAddonPosition.LeftTop;
@@ -20,8 +19,28 @@ public abstract class AttachedAddon : NativeChildAddon
     protected virtual Vector2 PositionOffset =>
         Vector2.Zero;
 
+    /// <summary>
+    /// 是否跟随 HostAddon 自动开关。<br/>
+    /// 自动开关条件见：<seealso cref="CanOpenAddon"/>。<br/>
+    /// 关闭此属性后，使用 Open、Close 或 Toggle 控制面板。
+    /// </summary>
+    /// <remarks>当 HostAddon 关闭时，一定会跟随关闭。</remarks>
+    protected virtual bool AutoOpenAddon =>
+        true;
+    
     protected virtual bool CanOpenAddon =>
         true;
+
+    protected override bool UsesWindowConfiguration =>
+        false;
+
+    protected override bool CloseOnHide =>
+        false;
+
+    /// <summary>
+    /// 是否已请求打开，包括等待宿主就绪或旧窗口完成关闭的情况。
+    /// </summary>
+    public bool IsRequestedOpen { get; private set; }
 
     public override Vector2 ContentStartPosition =>
         new Vector2(4f, 4f) + ContentPadding;
@@ -30,37 +49,44 @@ public abstract class AttachedAddon : NativeChildAddon
         Size - new Vector2(8f, 16f) - (ContentPadding * 2f);
 
     protected unsafe AtkUnitBase* HostAddon =>
-        Controller.ParentAddon;
+        (AtkUnitBase*)IGameGui.Instance().GetAddonByName(hostAddonName).Address;
+
+    private readonly string hostAddonName;
+
+    private TaskCompletionSource openCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private WindowBackgroundTextureNode? backgroundTexture;
     private SimpleImageNode?             backgroundImage;
 
     private bool isDisposed;
+    private bool isClosing;
+    private bool hostClosing;
 
     protected unsafe AttachedAddon
     (
         string              hostAddon,
         params AddonEvent[] hostAddonEvents
-    ) : base(NativeAddonController.GetOrCreate(hostAddon))
+    )
     {
-        ContentPadding = new Vector2(8f, 8f);
+        hostAddonName           = hostAddon;
+        HasWindowNode           = false;
+        ContentPadding          = new Vector2(8f, 8f);
+        RememberClosePosition   = false;
+        OpenInBounds            = false;
+        EnableContextMenu       = false;
+        OpenWindowSoundEffectId = 0;
 
-        foreach (var eventType in new[] { AddonEvent.PostDraw, AddonEvent.PostClose, AddonEvent.PreFinalize }.Concat(hostAddonEvents).Distinct())
+        foreach (var eventType in new[]
+                 {
+                     AddonEvent.PostSetup,
+                     AddonEvent.PostOpen,
+                     AddonEvent.PostDraw,
+                     AddonEvent.PostShow,
+                     AddonEvent.PostHide,
+                     AddonEvent.PostClose,
+                     AddonEvent.PreFinalize
+                 }.Concat(hostAddonEvents).Distinct())
             IAddonLifecycle.Instance().RegisterListener(eventType, hostAddon, OnHostAddonLifecycle);
-
-        IFramework.Instance().RunOnTick
-        (() =>
-            {
-                if (isDisposed || !HostAddon->IsAddonAndNodesReady())
-                    return;
-
-                if (hostAddonEvents.Contains(AddonEvent.PostSetup))
-                    OnHostAddon(AddonEvent.PostSetup, null);
-
-                if (CanOpenAddon)
-                    Open();
-            }
-        );
     }
 
     public override void Dispose()
@@ -88,30 +114,42 @@ public abstract class AttachedAddon : NativeChildAddon
     {
     }
 
-    protected virtual unsafe void OnAttachedAddonUpdate
-    (
-        AtkUnitBase* addon,
-        AtkUnitBase* hostAddon
-    )
-    {
-    }
-
-    protected virtual unsafe void OnAttachedAddonFinalize
+    /// <remarks>继承必须要调用 base.OnUpdate(...)</remarks>
+    protected override unsafe void OnUpdate
     (
         AtkUnitBase* addon
     )
     {
-    }
-
-    protected sealed override unsafe void OnUpdate
-    (
-        AtkUnitBase* addon
-    )
-    {
-        var hostAddon = HostAddon;
-
-        if (!hostAddon->IsAddonAndNodesReady())
+        var host = HostAddon;
+        if (isClosing || hostClosing || !host->IsAddonAndNodesReady())
             return;
+
+        addon->UiFlags             = host->UiFlags;
+        addon->IgnoreUIDisplayMode = host->IgnoreUIDisplayMode;
+
+        if (addon->DepthLayer != host->DepthLayer)
+            addon->SetDepthLayer(host->DepthLayer);
+
+        if (MathF.Abs(addon->Scale - host->Scale) > 0.0001f)
+            addon->SetScale(host->Scale / AtkUnitBase.GetGlobalUIScale(), true);
+
+        if (addon->Alpha != host->Alpha)
+            addon->SetAlpha(host->Alpha);
+
+        if (!host->IsVisible)
+        {
+            if (addon->IsVisible)
+                addon->Hide(true, false, 1);
+            return;
+        }
+
+        if (IsRequestedOpen && !addon->IsVisible)
+            addon->Show(true, 1);
+
+        if (!addon->IsReady)
+            return;
+
+        openCompletion.TrySetResult();
 
         if (backgroundTexture is null)
         {
@@ -136,7 +174,7 @@ public abstract class AttachedAddon : NativeChildAddon
             backgroundImage.AttachNode(backgroundTexture, NodePosition.AfterTarget);
         }
 
-        var hostSize  = new Vector2(hostAddon->GetScaledWidth(true), hostAddon->GetScaledHeight(true)) / addon->Scale;
+        var hostSize  = new Vector2(host->GetScaledWidth(true), host->GetScaledHeight(true)) / addon->Scale;
         var addonSize = new Vector2(addon->GetScaledWidth(true),     addon->GetScaledHeight(true))     / addon->Scale;
 
         var position = AttachPosition switch
@@ -156,27 +194,35 @@ public abstract class AttachedAddon : NativeChildAddon
             _                                  => Vector2.Zero
         };
 
-        LocalPosition = position + (PositionOffset / addon->Scale);
-        OnAttachedAddonUpdate(addon, hostAddon);
+        var hostPosition = host->RootNode == null ?
+                               new Vector2(host->X, host->Y) :
+                               new Vector2(host->RootNode->X, host->RootNode->Y);
+        SetWindowPosition(hostPosition + (position * addon->Scale) + PositionOffset);
         backgroundTexture.Size = Size;
         backgroundImage?.Size  = Vector2.Max(Size - new Vector2(8f, 16f), Vector2.Zero);
     }
 
-    protected sealed override unsafe void OnFinalize
+    /// <remarks>继承必须要调用 base.OnFinalize(...)</remarks>
+    protected override unsafe void OnFinalize
     (
         AtkUnitBase* addon
     )
     {
+        if (!isClosing)
+        {
+            IsRequestedOpen = false;
+            openCompletion.TrySetCanceled();
+        }
+
+        isClosing = true;
         backgroundImage?.Dispose();
         backgroundImage = null;
         
         backgroundTexture?.Dispose();
         backgroundTexture = null;
-        
-        OnAttachedAddonFinalize(addon);
     }
 
-    private void OnHostAddonLifecycle
+    private unsafe void OnHostAddonLifecycle
     (
         AddonEvent type,
         AddonArgs? args
@@ -186,16 +232,97 @@ public abstract class AttachedAddon : NativeChildAddon
 
         switch (type)
         {
-            case AddonEvent.PostDraw when IsOpen && !CanOpenAddon:
+            case AddonEvent.PostSetup:
+            case AddonEvent.PostOpen:
+                hostClosing = false;
+                break;
+
             case AddonEvent.PostClose:
             case AddonEvent.PreFinalize:
+                hostClosing = true;
                 Close();
                 break;
-            
-            case AddonEvent.PostDraw when !IsRequestedOpen && CanOpenAddon:
-                Open();
+
+            case AddonEvent.PostHide when args is AddonHideArgs hideArgs:
+                if (IsAllocated && !isClosing)
+                    InternalAddon->Hide(true, false, hideArgs.SetShowHideFlags);
+                break;
+
+            case AddonEvent.PostShow when args is AddonShowArgs showArgs:
+                if (IsRequestedOpen && IsAllocated && !isClosing)
+                    InternalAddon->Show(true, showArgs.UnsetShowHideFlags);
+                break;
+
+            case AddonEvent.PostDraw:
+                if (AutoOpenAddon)
+                {
+                    if (CanOpenAddon)
+                        Open();
+                    else if (IsRequestedOpen)
+                        Close();
+                }
+                else if (IsRequestedOpen && !IsAllocated)
+                    Open();
                 break;
         }
+    }
+
+    public override unsafe void Open()
+    {
+        ObjectDisposedException.ThrowIf(isDisposed, this);
+
+        if (!IsRequestedOpen)
+            openCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        IsRequestedOpen = true;
+
+        var host = HostAddon;
+        if (IsAllocated || hostClosing || !host->IsAddonAndNodesReady() || !host->IsVisible)
+            return;
+
+        isClosing = false;
+        AllocateAddon();
+        if (InternalAddon == null)
+        {
+            IsRequestedOpen = false;
+            openCompletion.TrySetException(new InvalidOperationException("Unable to allocate the attached addon."));
+            return;
+        }
+
+        InternalAddon->DisableFocusability         = true;
+        InternalAddon->DisableUnfocusedCloseOnEsc  = true;
+        InternalAddon->DisableFocusOnShow          = true;
+        InternalAddon->DisableCloseOnLoadScreen    = true;
+        InternalAddon->DisableShowHideSoundEffects = true;
+        InternalAddon->UiFlags                     = host->UiFlags;
+        InternalAddon->IgnoreUIDisplayMode         = host->IgnoreUIDisplayMode;
+        InternalAddon->SetScale(host->Scale / AtkUnitBase.GetGlobalUIScale(), true);
+        InternalAddon->Open(host->DepthLayer);
+    }
+
+    public override async Task OpenAsync()
+    {
+        await IFramework.Instance().Run(Open);
+        await openCompletion.Task;
+    }
+
+    public override void Close()
+    {
+        IsRequestedOpen = false;
+        openCompletion.TrySetCanceled();
+        if (!IsAllocated || isClosing)
+            return;
+
+        isClosing = true;
+        base.Close();
+    }
+
+    public override void Toggle()
+    {
+        if (IsRequestedOpen)
+            Close();
+        else
+            Open();
     }
 
     private bool ReleaseHostEvents()
@@ -204,6 +331,8 @@ public abstract class AttachedAddon : NativeChildAddon
             return false;
 
         isDisposed = true;
+        IsRequestedOpen = false;
+        openCompletion.TrySetCanceled();
         IAddonLifecycle.Instance().UnregisterListener(OnHostAddonLifecycle);
         return true;
     }
