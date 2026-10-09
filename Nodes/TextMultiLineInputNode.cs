@@ -1,106 +1,101 @@
 using FFXIVClientStructs.FFXIV.Client.System.Input;
-using FFXIVClientStructs.FFXIV.Client.System.String;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
-using Lumina.Text.ReadOnly;
 
 namespace OmenTools.KamiToolKit.Nodes;
 
 public unsafe class TextMultiLineInputNode : TextInputNode
 {
-    public TextMultiLineInputNode()
+    private float minimumHeight;
+    private float lastHeight;
+    private bool  isUpdatingHeight;
+
+    public TextMultiLineInputNode() : base(true)
     {
-        TextLimitsNode.AlignmentType = AlignmentType.BottomRight;
-
-        CurrentTextNode.TextFlags |= TextFlags.MultiLine;
-        CurrentTextNode.LineSpacing = 14;
-
-        Flags |= TextInputFlags.MultiLine;
-        AllowEnterToComplete = false;
-
-        CollisionNode.AddEvent(AtkEventType.InputReceived, InputComplete);
-
-        Component->InputSanitizationFlags = AllowedEntities.UppercaseLetters | AllowedEntities.LowercaseLetters | AllowedEntities.Numbers |
-                                            AllowedEntities.SpecialCharacters | AllowedEntities.CharacterList | AllowedEntities.OtherCharacters |
-                                            AllowedEntities.Payloads | AllowedEntities.Unknown9;
-
-        Component->ComponentTextData.MaxLine = byte.MaxValue;
-        Component->ComponentTextData.MaxByte = ushort.MaxValue;
+        minimumHeight = Height;
+        lastHeight    = Height;
     }
 
-    public uint MaxLines
+    public bool AutoUpdateHeight
     {
-        get => Component->ComponentTextData.MaxLine;
-        set => Component->ComponentTextData.MaxLine = value;
-    }
-
-    public uint MaxBytes
-    {
-        get => Component->ComponentTextData.MaxByte;
-        set => Component->ComponentTextData.MaxByte = value;
-    }
-
-    public override ReadOnlySeString String
-    {
-        get => base.String;
+        get;
         set
         {
-            base.String = value;
-            PlaceholderTextNode.IsVisible = PlaceholderString is not null && value.IsEmpty;
+            if (field == value) return;
+
+            field         = value;
+            minimumHeight = Height;
             UpdateHeightForContent();
         }
     }
-
-    public override Action<ReadOnlySeString>? OnInputReceived
-    {
-        get => base.OnInputReceived;
-        set
-        {
-            base.OnInputReceived = _ => UpdateHeightForContent();
-            base.OnInputReceived += value;
-        }
-    }
-
-    public bool AutoUpdateHeight { get; set; }
 
     public Action<float>? HeightChanged { get; set; }
 
     public void UpdateHeightForContent()
     {
-        if (!AutoUpdateHeight) return;
+        if (!AutoUpdateHeight || isUpdatingHeight) return;
 
-        var text = String;
-        var lineCount = Math.Max(1, text.ToString().Split('\r', '\n').Length);
-        var lineHeight = CurrentTextNode.LineSpacing;
-        var contentHeight = Math.Max(Height, lineCount * lineHeight + 20);
+        var textHeight    = CurrentTextNode.GetTextDrawSize(false).Y;
+        var contentHeight = MathF.Ceiling(MathF.Max(minimumHeight, MathF.Max(textHeight, CurrentTextNode.LineSpacing) + 20.0f));
+        contentHeight = MathF.Min(contentHeight, ushort.MaxValue);
+        if (MathF.Abs(Height - contentHeight) < 0.5f) return;
 
-        var oldHeight = Height;
-        Height = contentHeight;
+        isUpdatingHeight = true;
 
-        if (Math.Abs(contentHeight - oldHeight) > 0.1f)
-            HeightChanged?.Invoke(Height);
-    }
-
-    private void InputComplete()
-    {
-        if (UIInputData.Instance()->IsKeyPressed(SeVirtualKey.RETURN))
+        try
         {
-            var textInputComponent = Node->GetAsAtkComponentTextInput();
-            var cursorPos = textInputComponent->CursorPos;
-
-            using (var utf8String = new Utf8String())
-            {
-                utf8String.SetString("\r");
-                textInputComponent->WriteString(&utf8String);
-            }
-
-            textInputComponent->CursorPos = cursorPos + 1;
-            textInputComponent->SelectionStart = cursorPos + 1;
-            textInputComponent->SelectionEnd = cursorPos + 1;
+            Height = contentHeight;
+        }
+        finally
+        {
+            isUpdatingHeight = false;
         }
 
-        OnInputComplete?.Invoke(Component->EvaluatedString.AsSpan());
+        HeightChanged?.Invoke(Height);
+    }
+
+    protected override void OnTextChanged()
+    {
+        base.OnTextChanged();
+        UpdateHeightForContent();
+    }
+
+    protected override void OnUpdate
+    (
+        AtkComponentBase* thisPtr,
+        float             delta
+    )
+    {
+        base.OnUpdate(thisPtr, delta);
+        if (IsDisposed || AllowEnterToComplete || !IsFocused) return;
+
+        var inputData = UIInputData.Instance();
+        if (!inputData->IsKeyDown(SeVirtualKey.CONTROL) || !inputData->IsKeyPressed(SeVirtualKey.RETURN)) return;
+
+        var textInput = AtkStage.Instance()->AtkInputManager->TextInput;
+        if (textInput->CompletionDepth != 0) return;
+
+        var textService = textInput->TextService;
+        var isComposing = (delegate* unmanaged<TextService*, bool>)(*(void***)textService)[17];
+        if (isComposing(textService)) return;
+
+        var inputEvent     = new AtkEvent();
+        var inputEventData = new AtkEventData();
+        inputEventData.InputData.InputId  = (int)SeVirtualKey.RETURN;
+        inputEventData.InputData.State    = InputState.Down;
+        inputEventData.InputData.Modifier = ModifierFlag.Ctrl;
+        base.OnReceiveEvent(thisPtr, AtkEventType.InputReceived, 0x300, &inputEvent, &inputEventData);
+    }
+
+    protected override void OnSizeChanged()
+    {
+        base.OnSizeChanged();
+
+        if (!isUpdatingHeight && MathF.Abs(Height - lastHeight) >= 0.5f)
+            minimumHeight = Height;
+
+        lastHeight = Height;
+        UpdateHeightForContent();
     }
 }
