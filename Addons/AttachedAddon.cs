@@ -114,6 +114,28 @@ public abstract class AttachedAddon : NativeAddon
     {
     }
 
+    protected override unsafe void OnReceiveGlobalEvent
+    (
+        AtkUnitBase*  addon,
+        AtkEventType  eventType,
+        int           eventParam,
+        AtkEvent*     atkEvent,
+        AtkEventData* atkEventData
+    )
+    {
+        if (eventType is not (AtkEventType.InputReceived or AtkEventType.InputNavigation))
+        {
+            base.OnReceiveGlobalEvent(addon, eventType, eventParam, atkEvent, atkEventData);
+            return;
+        }
+
+        var host = HostAddon;
+        if (isClosing || hostClosing || !host->IsAddonAndNodesReady())
+            return;
+
+        host->ReceiveGlobalEvent(eventType, eventParam, atkEvent, atkEventData);
+    }
+
     /// <remarks>继承必须要调用 base.OnUpdate(...)</remarks>
     protected override unsafe void OnUpdate
     (
@@ -293,7 +315,6 @@ public abstract class AttachedAddon : NativeAddon
             return;
         }
 
-        InternalAddon->DisableFocusability         = true;
         InternalAddon->DisableUnfocusedCloseOnEsc  = true;
         InternalAddon->DisableFocusOnShow          = true;
         InternalAddon->DisableCloseOnLoadScreen    = true;
