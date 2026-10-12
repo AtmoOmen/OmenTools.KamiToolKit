@@ -2,7 +2,6 @@ using System.Numerics;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
-using KamiToolKit.Classes;
 using KamiToolKit.Nodes;
 using Lumina.Text.ReadOnly;
 using OmenTools.Extensions;
@@ -79,13 +78,13 @@ public sealed unsafe class InputNumericAddon : NativeAddon
 
         PromptNode = new TextNode
         {
-            Size             = new(224.0f, 0.0f),
-            TextColor        = ColorHelper.GetColor(8),
-            TextOutlineColor = ColorHelper.GetColor(7),
-            FontSize         = 12,
-            FontType         = FontType.Axis,
-            LineSpacing      = 18,
-            AlignmentType    = options.PromptAlignment
+            Size               = new(224.0f, 0.0f),
+            TextColorID        = 8,
+            TextOutlineColorID = 7,
+            FontSize           = 12,
+            FontType           = FontType.Axis,
+            LineSpacing        = 18,
+            AlignmentType      = options.PromptAlignment
         };
         PromptNode.AddTextFlags(TextFlags.WordWrap, TextFlags.MultiLine);
         PromptNode.AttachNode(this);
@@ -172,9 +171,9 @@ public sealed unsafe class InputNumericAddon : NativeAddon
         PromptNode.Size = new(224.0f, 0.0f);
         var promptHeight = PromptNode.GetTextDrawSize().Y;
 
-        var inputY  = 22.0f + promptHeight + 8.0f;
-        var buttonY = inputY + 28.0f + 10.0f;
-        var height  = buttonY + 28.0f + 18.0f;
+        var inputY  = 22.0f   + promptHeight + 8.0f;
+        var buttonY = inputY  + 28.0f        + 10.0f;
+        var height  = buttonY + 28.0f        + 18.0f;
 
         SetWindowSize(280.0f, height);
 
@@ -184,14 +183,8 @@ public sealed unsafe class InputNumericAddon : NativeAddon
         InputNode.Size     = new Vector2(146.0f, 28.0f);
         InputNode.Position = new Vector2(67.0f,  inputY);
 
-        const float BUTTON_WIDTH = 100.0f;
-        const float BUTTON_GAP   = 8.0f;
-
-        var totalButtonWidth = (BUTTON_WIDTH * 2.0f) + BUTTON_GAP;
-        var buttonLeft       = (280.0f - totalButtonWidth) / 2.0f;
-
-        ConfirmButton.Position = new Vector2(buttonLeft,  buttonY);
-        CancelButton.Position  = new Vector2(buttonLeft + BUTTON_WIDTH + BUTTON_GAP, buttonY);
+        ConfirmButton.Position = new Vector2(BUTTON_LEFT,                             buttonY);
+        CancelButton.Position  = new Vector2(BUTTON_LEFT + BUTTON_WIDTH + BUTTON_GAP, buttonY);
 
         ConfirmButton.NavIndex = 1;
         ConfirmButton.NavLeft  = 2;
@@ -227,7 +220,7 @@ public sealed unsafe class InputNumericAddon : NativeAddon
             AddonPositionAlignment.BottomCenter => addonSize with { X = addonSize.X / 2.0f },
             AddonPositionAlignment.BottomLeft   => addonSize with { X = 0.0f },
             AddonPositionAlignment.LeftCenter   => new(0.0f, addonSize.Y / 2.0f),
-            AddonPositionAlignment.Center       => new(addonSize.X / 2.0f, addonSize.Y / 2.0f),
+            AddonPositionAlignment.Center       => new(addonSize.X       / 2.0f, addonSize.Y / 2.0f),
             _                                   => Vector2.Zero
         };
 
@@ -265,21 +258,29 @@ public sealed unsafe class InputNumericAddon : NativeAddon
     )
     {
         if (options.Min > options.Max)
-            throw new ArgumentOutOfRangeException(nameof(options.Min));
+            throw new ArgumentOutOfRangeException(nameof(options), options.Min, null);
 
         if (options.Step <= 0)
-            throw new ArgumentOutOfRangeException(nameof(options.Step));
+            throw new ArgumentOutOfRangeException(nameof(options), options.Step, null);
 
         if (options.Position?.Position is { } position && (!float.IsFinite(position.X) || !float.IsFinite(position.Y)))
-            throw new ArgumentOutOfRangeException(nameof(options.Position));
+            throw new ArgumentOutOfRangeException(nameof(options), options.Position, null);
     }
 
     private readonly InputNumericAddonOptions options;
-    private          Vector2?             openPosition;
-    private          bool                 hasResult;
+    private          Vector2?                 openPosition;
+    private          bool                     hasResult;
 
     private TextNode?         PromptNode    { get; set; }
     private NumericInputNode? InputNode     { get; set; }
     private TextButtonNode?   ConfirmButton { get; set; }
     private TextButtonNode?   CancelButton  { get; set; }
+
+    #region 常量
+
+    private const float BUTTON_WIDTH = 100.0f;
+    private const float BUTTON_GAP   = 8.0f;
+    private const float BUTTON_LEFT  = (280.0f - (BUTTON_WIDTH * 2.0f) - BUTTON_GAP) / 2.0f;
+
+    #endregion
 }

@@ -1,6 +1,5 @@
 using System.Numerics;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit.Classes;
 using KamiToolKit.Interfaces;
 using KamiToolKit.Nodes;
 using Lumina.Excel.Sheets;
@@ -21,7 +20,7 @@ public class ItemListItemNode : ListItemNode<Item>, IListItemNode
         IconNode = new IconImageNode
         {
             FitTexture = true,
-            IconId     = 60072,
+            IconId     = 60072
         };
         IconNode.AttachNode(this);
 
@@ -31,7 +30,7 @@ public class ItemListItemNode : ListItemNode<Item>, IListItemNode
             FontSize      = 14,
             LineSpacing   = 14,
             AlignmentType = AlignmentType.BottomLeft,
-            TextColor     = ColorHelper.GetColor(8),
+            TextColorID   = 8
         };
         LabelTextNode.AttachNode(this);
 
@@ -41,7 +40,7 @@ public class ItemListItemNode : ListItemNode<Item>, IListItemNode
             FontSize      = 12,
             LineSpacing   = 12,
             AlignmentType = AlignmentType.TopLeft,
-            TextColor     = ColorHelper.GetColor(3)
+            TextColorID   = 3
         };
         SubLabelTextNode.AttachNode(this);
 
@@ -50,7 +49,7 @@ public class ItemListItemNode : ListItemNode<Item>, IListItemNode
             TextFlags     = TextFlags.Emboss,
             FontSize      = 10,
             AlignmentType = AlignmentType.BottomRight,
-            TextColor     = ColorHelper.GetColor(3),
+            TextColorID   = 3
         };
         IDTextNode.AttachNode(this);
 

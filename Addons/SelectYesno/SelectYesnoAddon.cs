@@ -2,7 +2,6 @@ using System.Numerics;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
-using KamiToolKit.Classes;
 using KamiToolKit.Nodes;
 using Lumina.Text.ReadOnly;
 using OmenTools.Extensions;
@@ -74,7 +73,7 @@ public sealed unsafe class SelectYesnoAddon : NativeAddon
         PromptNode = new TextNode
         {
             Size          = new(344.0f, 0.0f),
-            TextColor     = ColorHelper.GetColor(1),
+            TextColorID   = 1,
             FontSize      = 14,
             FontType      = FontType.Axis,
             LineSpacing   = 18,
@@ -238,16 +237,16 @@ public sealed unsafe class SelectYesnoAddon : NativeAddon
     {
         var offset = addonPosition.Alignment switch
         {
-            AddonPositionAlignment.TopLeft     => Vector2.Zero,
-            AddonPositionAlignment.TopCenter   => new(addonSize.X / 2.0f, 0.0f),
-            AddonPositionAlignment.TopRight    => addonSize with { Y = 0.0f },
-            AddonPositionAlignment.RightCenter => addonSize with { Y = addonSize.Y / 2.0f },
-            AddonPositionAlignment.BottomRight => new(addonSize.X, addonSize.Y),
+            AddonPositionAlignment.TopLeft      => Vector2.Zero,
+            AddonPositionAlignment.TopCenter    => new(addonSize.X / 2.0f, 0.0f),
+            AddonPositionAlignment.TopRight     => addonSize with { Y = 0.0f },
+            AddonPositionAlignment.RightCenter  => addonSize with { Y = addonSize.Y / 2.0f },
+            AddonPositionAlignment.BottomRight  => new(addonSize.X, addonSize.Y),
             AddonPositionAlignment.BottomCenter => addonSize with { X = addonSize.X / 2.0f },
-            AddonPositionAlignment.BottomLeft  => addonSize with { X = 0.0f },
-            AddonPositionAlignment.LeftCenter  => new(0.0f, addonSize.Y / 2.0f),
-            AddonPositionAlignment.Center      => new(addonSize.X / 2.0f, addonSize.Y / 2.0f),
-            _                                  => Vector2.Zero
+            AddonPositionAlignment.BottomLeft   => addonSize with { X = 0.0f },
+            AddonPositionAlignment.LeftCenter   => new(0.0f, addonSize.Y / 2.0f),
+            AddonPositionAlignment.Center       => new(addonSize.X       / 2.0f, addonSize.Y / 2.0f),
+            _                                   => Vector2.Zero
         };
 
         return addonPosition.Position - offset;
@@ -284,15 +283,15 @@ public sealed unsafe class SelectYesnoAddon : NativeAddon
     )
     {
         if ((options.Buttons & ~SelectYesnoAddonButtons.Both) != 0)
-            throw new ArgumentOutOfRangeException(nameof(options.Buttons));
+            throw new ArgumentOutOfRangeException(nameof(options), options.Buttons, null);
 
         if (options.Position?.Position is { } position && (!float.IsFinite(position.X) || !float.IsFinite(position.Y)))
-            throw new ArgumentOutOfRangeException(nameof(options.Position));
+            throw new ArgumentOutOfRangeException(nameof(options), options.Position, null);
     }
 
     private readonly SelectYesnoAddonOptions options;
-    private          Vector2?             openPosition;
-    private          bool                 hasResult;
+    private          Vector2?                openPosition;
+    private          bool                    hasResult;
 
     private TextNode?       PromptNode      { get; set; }
     private TextButtonNode? PrimaryButton   { get; set; }

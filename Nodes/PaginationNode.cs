@@ -1,7 +1,6 @@
 using System.Numerics;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit.Classes;
 using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
 using OmenTools.Extensions;
@@ -23,17 +22,17 @@ public sealed class PaginationNode : SimpleComponentNode
 
         IndicatorTextNode = new TextNode
         {
-            FontType         = FontType.MiedingerMed,
-            FontSize         = 14,
-            LineSpacing      = 0,
-            CharSpacing      = 0,
-            AlignmentType    = AlignmentType.Center,
-            TextColor        = ColorHelper.GetColor(64),
-            TextOutlineColor = ColorHelper.GetColor(65),
-            TextFlags        = TextFlags.Glare,
-            Height           = BUTTON_HEIGHT,
-            OnStringUpdated  = UpdateLayout,
-            IsVisible        = false
+            FontType           = FontType.MiedingerMed,
+            FontSize           = 14,
+            LineSpacing        = 0,
+            CharSpacing        = 0,
+            AlignmentType      = AlignmentType.Center,
+            TextColorID        = 64,
+            TextOutlineColorID = 65,
+            TextFlags          = TextFlags.Glare,
+            Height             = BUTTON_HEIGHT,
+            OnStringUpdated    = UpdateLayout,
+            IsVisible          = false
         };
 
         NextPageButtonNode = new TextureButtonNode

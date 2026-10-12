@@ -2,7 +2,6 @@ using System.Numerics;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
-using KamiToolKit.Classes;
 using KamiToolKit.Nodes;
 using Lumina.Text.ReadOnly;
 using OmenTools.Extensions;
@@ -79,24 +78,24 @@ public sealed unsafe class InputStringAddon : NativeAddon
 
         PromptNode = new TextNode
         {
-            Size             = new(PROMPT_WIDTH, 0.0f),
-            TextColor        = ColorHelper.GetColor(8),
-            TextOutlineColor = ColorHelper.GetColor(7),
-            FontSize         = 14,
-            FontType         = FontType.Axis,
-            LineSpacing      = 21,
-            AlignmentType    = options.PromptAlignment
+            Size               = new(PROMPT_WIDTH, 0.0f),
+            TextColorID        = 8,
+            TextOutlineColorID = 7,
+            FontSize           = 14,
+            FontType           = FontType.Axis,
+            LineSpacing        = 21,
+            AlignmentType      = options.PromptAlignment
         };
         PromptNode.AddTextFlags(TextFlags.WordWrap, TextFlags.MultiLine);
         PromptNode.AttachNode(this);
 
         LabelNode = new TextNode
         {
-            Size             = new(LABEL_WIDTH, LABEL_HEIGHT),
-            TextColor        = ColorHelper.GetColor(3),
-            TextOutlineColor = ColorHelper.GetColor(7),
-            FontSize         = 12,
-            FontType         = FontType.Axis
+            Size               = new(LABEL_WIDTH, LABEL_HEIGHT),
+            TextColorID        = 3,
+            TextOutlineColorID = 7,
+            FontSize           = 12,
+            FontType           = FontType.Axis
         };
         LabelNode.AttachNode(this);
 
@@ -191,9 +190,11 @@ public sealed unsafe class InputStringAddon : NativeAddon
         PromptNode.Size = new(PROMPT_WIDTH, 0.0f);
         var promptHeight = PromptNode.GetTextDrawSize().Y;
 
-        var labelY  = PROMPT_Y + promptHeight + PROMPT_TO_LABEL_GAP;
-        var inputY  = hasLabel ? labelY + LABEL_TO_INPUT_GAP : labelY;
-        var buttonY = inputY + INPUT_HEIGHT + INPUT_TO_BUTTON_GAP;
+        var labelY = PROMPT_Y + promptHeight + PROMPT_TO_LABEL_GAP;
+        var inputY = hasLabel ?
+                         labelY + LABEL_TO_INPUT_GAP :
+                         labelY;
+        var buttonY = inputY  + INPUT_HEIGHT  + INPUT_TO_BUTTON_GAP;
         var height  = buttonY + BUTTON_HEIGHT + BOTTOM_PADDING;
 
         SetWindowSize(WINDOW_WIDTH, height);
@@ -207,11 +208,8 @@ public sealed unsafe class InputStringAddon : NativeAddon
         InputNode.Size     = new Vector2(INPUT_WIDTH, INPUT_HEIGHT);
         InputNode.Position = new Vector2(INPUT_X,     inputY);
 
-        var totalButtonWidth = (BUTTON_WIDTH * 2.0f) + BUTTON_GAP;
-        var buttonLeft       = (WINDOW_WIDTH - totalButtonWidth) / 2.0f;
-
-        ConfirmButton.Position = new Vector2(buttonLeft, buttonY);
-        CancelButton.Position  = new Vector2(buttonLeft + BUTTON_WIDTH + BUTTON_GAP, buttonY);
+        ConfirmButton.Position = new Vector2(BUTTON_LEFT,                             buttonY);
+        CancelButton.Position  = new Vector2(BUTTON_LEFT + BUTTON_WIDTH + BUTTON_GAP, buttonY);
 
         ConfirmButton.NavIndex = 1;
         ConfirmButton.NavLeft  = 2;
@@ -247,7 +245,7 @@ public sealed unsafe class InputStringAddon : NativeAddon
             AddonPositionAlignment.BottomCenter => addonSize with { X = addonSize.X / 2.0f },
             AddonPositionAlignment.BottomLeft   => addonSize with { X = 0.0f },
             AddonPositionAlignment.LeftCenter   => new(0.0f, addonSize.Y / 2.0f),
-            AddonPositionAlignment.Center       => new(addonSize.X / 2.0f, addonSize.Y / 2.0f),
+            AddonPositionAlignment.Center       => new(addonSize.X       / 2.0f, addonSize.Y / 2.0f),
             _                                   => Vector2.Zero
         };
 
@@ -285,37 +283,43 @@ public sealed unsafe class InputStringAddon : NativeAddon
     )
     {
         if (options.MaxCharacters < 0)
-            throw new ArgumentOutOfRangeException(nameof(options.MaxCharacters));
+            throw new ArgumentOutOfRangeException(nameof(options), options.MaxCharacters, null);
 
         if (options.Position?.Position is { } position && (!float.IsFinite(position.X) || !float.IsFinite(position.Y)))
-            throw new ArgumentOutOfRangeException(nameof(options.Position));
+            throw new ArgumentOutOfRangeException(nameof(options), options.Position, null);
     }
 
-    private const float WINDOW_WIDTH         = 320.0f;
-    private const float PROMPT_X             = 17.0f;
-    private const float PROMPT_Y             = 15.0f;
-    private const float PROMPT_WIDTH         = 276.0f;
-    private const float LABEL_X              = 18.0f;
-    private const float LABEL_WIDTH          = 284.0f;
-    private const float LABEL_HEIGHT         = 21.0f;
-    private const float INPUT_X              = 17.0f;
-    private const float INPUT_WIDTH          = 286.0f;
-    private const float INPUT_HEIGHT         = 28.0f;
-    private const float BUTTON_WIDTH         = 100.0f;
-    private const float BUTTON_HEIGHT        = 28.0f;
-    private const float BUTTON_GAP           = 8.0f;
-    private const float PROMPT_TO_LABEL_GAP  = 18.0f;
-    private const float LABEL_TO_INPUT_GAP   = 16.0f;
-    private const float INPUT_TO_BUTTON_GAP  = 10.0f;
-    private const float BOTTOM_PADDING       = 18.0f;
 
     private readonly InputStringAddonOptions options;
-    private          Vector2?             openPosition;
-    private          bool                 hasResult;
+    private          Vector2?                openPosition;
+    private          bool                    hasResult;
 
     private TextNode?       PromptNode    { get; set; }
     private TextNode?       LabelNode     { get; set; }
     private TextInputNode?  InputNode     { get; set; }
     private TextButtonNode? ConfirmButton { get; set; }
     private TextButtonNode? CancelButton  { get; set; }
+
+    #region 常量
+
+    private const float WINDOW_WIDTH        = 320.0f;
+    private const float PROMPT_X            = 17.0f;
+    private const float PROMPT_Y            = 15.0f;
+    private const float PROMPT_WIDTH        = 276.0f;
+    private const float LABEL_X             = 18.0f;
+    private const float LABEL_WIDTH         = 284.0f;
+    private const float LABEL_HEIGHT        = 21.0f;
+    private const float INPUT_X             = 17.0f;
+    private const float INPUT_WIDTH         = 286.0f;
+    private const float INPUT_HEIGHT        = 28.0f;
+    private const float BUTTON_WIDTH        = 100.0f;
+    private const float BUTTON_HEIGHT       = 28.0f;
+    private const float BUTTON_GAP          = 8.0f;
+    private const float BUTTON_LEFT         = (WINDOW_WIDTH - (BUTTON_WIDTH * 2.0f) - BUTTON_GAP) / 2.0f;
+    private const float PROMPT_TO_LABEL_GAP = 18.0f;
+    private const float LABEL_TO_INPUT_GAP  = 16.0f;
+    private const float INPUT_TO_BUTTON_GAP = 10.0f;
+    private const float BOTTOM_PADDING      = 18.0f;
+
+    #endregion
 }
