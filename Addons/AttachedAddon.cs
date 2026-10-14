@@ -89,6 +89,7 @@ public abstract class AttachedAddon : NativeAddon
             IAddonLifecycle.Instance().RegisterListener(eventType, hostAddon, OnHostAddonLifecycle);
     }
 
+    /// <remarks>继承必须要调用 base.Dispose(...)</remarks>
     public override void Dispose()
     {
         if (!ReleaseHostEvents())
