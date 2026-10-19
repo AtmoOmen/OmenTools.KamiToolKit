@@ -32,5 +32,5 @@ public sealed record InputStringAddonOptions
 
     public ushort BlockedParentID { get; init; }
 
-    public Action<InputStringAddon, InputStringAddonResult>? Callback { get; init; }
+    public Action<InputStringAddon, InputStringAddonResultInfo>? Callback { get; init; }
 }
