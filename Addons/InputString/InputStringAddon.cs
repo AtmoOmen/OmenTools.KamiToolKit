@@ -6,6 +6,7 @@ using KamiToolKit.Nodes;
 using Lumina.Text.ReadOnly;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Models;
+using OmenTools.KamiToolKit.Nodes;
 
 namespace OmenTools.KamiToolKit.Addons.InputString;
 
@@ -99,11 +100,12 @@ public sealed unsafe class InputStringAddon : NativeAddon
         };
         LabelNode.AttachNode(this);
 
-        InputNode = new TextInputNode();
+        InputNode = new TextMultiLineInputNode();
         InputNode.AttachNode(this);
 
         InputNode.OnInputComplete = _ => Select(InputStringAddonResult.Confirmed);
         InputNode.OnEscapeEntered = () => Select(InputStringAddonResult.Cancelled);
+        InputNode.HeightChanged   = _ => UpdateInputLayout();
 
         ConfirmButton = new TextButtonNode
         {
@@ -182,34 +184,13 @@ public sealed unsafe class InputStringAddon : NativeAddon
         SetButtonText(ConfirmButton, dialogOptions.ConfirmButtonText, 572);
         SetButtonText(CancelButton,  dialogOptions.CancelButtonText,  2);
 
-        InputNode.String            = dialogOptions.Value ?? string.Empty;
+        InputNode.String            = dialogOptions.DefaultText ?? string.Empty;
         InputNode.PlaceholderString = dialogOptions.Placeholder;
         InputNode.MaxCharacters     = dialogOptions.MaxCharacters;
+        InputNode.MaxLines          = dialogOptions.MaxLines;
         InputNode.ShowLimitText     = dialogOptions.MaxCharacters > 0;
-
-        PromptNode.Size = new(PROMPT_WIDTH, 0.0f);
-        var promptHeight = PromptNode.GetTextDrawSize().Y;
-
-        var labelY = PROMPT_Y + promptHeight + PROMPT_TO_LABEL_GAP;
-        var inputY = hasLabel ?
-                         labelY + LABEL_TO_INPUT_GAP :
-                         labelY;
-        var buttonY = inputY  + INPUT_HEIGHT  + INPUT_TO_BUTTON_GAP;
-        var height  = buttonY + BUTTON_HEIGHT + BOTTOM_PADDING;
-
-        SetWindowSize(WINDOW_WIDTH, height);
-
-        PromptNode.Size     = new Vector2(PROMPT_WIDTH, promptHeight);
-        PromptNode.Position = new Vector2(PROMPT_X,     PROMPT_Y);
-
-        LabelNode.Size     = new Vector2(LABEL_WIDTH, LABEL_HEIGHT);
-        LabelNode.Position = new Vector2(LABEL_X,     labelY);
-
-        InputNode.Size     = new Vector2(INPUT_WIDTH, INPUT_HEIGHT);
-        InputNode.Position = new Vector2(INPUT_X,     inputY);
-
-        ConfirmButton.Position = new Vector2(BUTTON_LEFT,                             buttonY);
-        CancelButton.Position  = new Vector2(BUTTON_LEFT + BUTTON_WIDTH + BUTTON_GAP, buttonY);
+        InputNode.Size              = new Vector2(INPUT_WIDTH, INPUT_HEIGHT * 2.0f);
+        InputNode.AutoUpdateHeight  = true;
 
         ConfirmButton.NavIndex = 1;
         ConfirmButton.NavLeft  = 2;
@@ -221,12 +202,43 @@ public sealed unsafe class InputStringAddon : NativeAddon
         if (InternalAddon is not null)
             InternalAddon->FocusNode = InputNode;
 
+        UpdateInputLayout();
+
         var screenSize  = (Vector2)AtkStage.Instance()->ScreenSize;
         var maxPosition = Vector2.Max(Vector2.Zero, screenSize - Size);
         var position = options.Position is { } addonPosition ?
                            Vector2.Clamp(GetWindowPosition(addonPosition, RootNode.Node->GetNodeState().Size), Vector2.Zero, maxPosition) :
                            maxPosition / 2.0f;
         openPosition = position;
+    }
+
+    private void UpdateInputLayout()
+    {
+        if (PromptNode is null || LabelNode is null || InputNode is null || ConfirmButton is null || CancelButton is null)
+            return;
+
+        PromptNode.Size = new(PROMPT_WIDTH, 0.0f);
+        var promptHeight = PromptNode.GetTextDrawSize().Y;
+
+        var labelY = PROMPT_Y + promptHeight + PROMPT_TO_LABEL_GAP;
+        var inputY = LabelNode.IsVisible ?
+                         labelY + LABEL_TO_INPUT_GAP :
+                         labelY;
+        var buttonY = inputY  + InputNode.Height + INPUT_TO_BUTTON_GAP;
+        var height  = buttonY + BUTTON_HEIGHT    + BOTTOM_PADDING;
+
+        SetWindowSize(WINDOW_WIDTH, height);
+
+        PromptNode.Size     = new Vector2(PROMPT_WIDTH, promptHeight);
+        PromptNode.Position = new Vector2(PROMPT_X,     PROMPT_Y);
+
+        LabelNode.Size     = new Vector2(LABEL_WIDTH, LABEL_HEIGHT);
+        LabelNode.Position = new Vector2(LABEL_X,     labelY);
+
+        InputNode.Position = new Vector2(INPUT_X, inputY);
+
+        ConfirmButton.Position = new Vector2(BUTTON_LEFT,                             buttonY);
+        CancelButton.Position  = new Vector2(BUTTON_LEFT + BUTTON_WIDTH + BUTTON_GAP, buttonY);
     }
 
     private static Vector2 GetWindowPosition
@@ -285,6 +297,9 @@ public sealed unsafe class InputStringAddon : NativeAddon
         if (options.MaxCharacters < 0)
             throw new ArgumentOutOfRangeException(nameof(options), options.MaxCharacters, null);
 
+        if (options.MaxLines is < 1 or > byte.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(options), options.MaxLines, null);
+
         if (options.Position?.Position is { } position && (!float.IsFinite(position.X) || !float.IsFinite(position.Y)))
             throw new ArgumentOutOfRangeException(nameof(options), options.Position, null);
     }
@@ -294,23 +309,23 @@ public sealed unsafe class InputStringAddon : NativeAddon
     private          Vector2?                openPosition;
     private          bool                    hasResult;
 
-    private TextNode?       PromptNode    { get; set; }
-    private TextNode?       LabelNode     { get; set; }
-    private TextInputNode?  InputNode     { get; set; }
-    private TextButtonNode? ConfirmButton { get; set; }
-    private TextButtonNode? CancelButton  { get; set; }
+    private TextNode?               PromptNode    { get; set; }
+    private TextNode?               LabelNode     { get; set; }
+    private TextMultiLineInputNode? InputNode     { get; set; }
+    private TextButtonNode?         ConfirmButton { get; set; }
+    private TextButtonNode?         CancelButton  { get; set; }
 
     #region 常量
 
-    private const float WINDOW_WIDTH        = 320.0f;
+    private const float WINDOW_WIDTH        = 606.0f;
     private const float PROMPT_X            = 17.0f;
     private const float PROMPT_Y            = 15.0f;
-    private const float PROMPT_WIDTH        = 276.0f;
+    private const float PROMPT_WIDTH        = 562.0f;
     private const float LABEL_X             = 18.0f;
-    private const float LABEL_WIDTH         = 284.0f;
+    private const float LABEL_WIDTH         = 570.0f;
     private const float LABEL_HEIGHT        = 21.0f;
     private const float INPUT_X             = 17.0f;
-    private const float INPUT_WIDTH         = 286.0f;
+    private const float INPUT_WIDTH         = 572.0f;
     private const float INPUT_HEIGHT        = 28.0f;
     private const float BUTTON_WIDTH        = 100.0f;
     private const float BUTTON_HEIGHT       = 28.0f;

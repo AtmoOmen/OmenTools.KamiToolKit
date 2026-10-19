@@ -10,11 +10,13 @@ public sealed record InputStringAddonOptions
 
     public ReadOnlySeString? Label { get; init; }
 
-    public ReadOnlySeString? Value { get; init; }
+    public ReadOnlySeString? DefaultText { get; init; }
 
     public string? Placeholder { get; init; }
 
     public int MaxCharacters { get; init; }
+
+    public uint MaxLines { get; init; } = 1;
 
     public AlignmentType PromptAlignment { get; init; } = AlignmentType.Left;
 
