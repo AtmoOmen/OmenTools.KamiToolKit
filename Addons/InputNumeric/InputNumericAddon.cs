@@ -118,7 +118,7 @@ public sealed unsafe class InputNumericAddon : NativeAddon
             return;
 
         hasResult = true;
-        IFramework.Instance().RunOnTick(() => options.Callback?.Invoke(this, InputNumericAddonResult.Closed), delayTicks: 1);
+        IFramework.Instance().RunOnTick(() => options.Callback?.Invoke(this, new(InputNumericAddonResult.Closed, Value)), delayTicks: 1);
     }
 
     protected override void OnUpdate
@@ -249,7 +249,7 @@ public sealed unsafe class InputNumericAddon : NativeAddon
         hasResult = true;
         var callback = options.Callback;
         Close();
-        callback?.Invoke(this, result);
+        callback?.Invoke(this, new(result, Value));
     }
 
     private static void ValidateOptions

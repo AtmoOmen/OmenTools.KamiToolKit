@@ -32,5 +32,5 @@ public sealed record InputNumericAddonOptions
 
     public ushort BlockedParentID { get; init; }
 
-    public Action<InputNumericAddon, InputNumericAddonResult>? Callback { get; init; }
+    public Action<InputNumericAddon, InputNumericAddonResultInfo>? Callback { get; init; }
 }
