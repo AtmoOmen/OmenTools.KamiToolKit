@@ -136,15 +136,18 @@ public sealed unsafe class InputStringAddon : NativeAddon
         IFramework.Instance().RunOnTick(() => options.Callback?.Invoke(this, new(InputStringAddonResult.Closed, Value)), delayTicks: 1);
     }
 
-    protected override void OnUpdate
+    protected override void OnSetupComplete
     (
         AtkUnitBase* addon
     )
     {
-        if (openPosition == null) return;
-
-        SetWindowPosition(openPosition.Value);
-        openPosition = null;
+        var screenSize  = (Vector2)AtkStage.Instance()->ScreenSize;
+        var addonSize   = new Vector2(addon->GetScaledWidth(true), addon->GetScaledHeight(true));
+        var maxPosition = Vector2.Max(Vector2.Zero, screenSize - addonSize);
+        var position = options.Position is { } addonPosition ?
+                           Vector2.Clamp(GetWindowPosition(addonPosition, addonSize), Vector2.Zero, maxPosition) :
+                           maxPosition / 2.0f;
+        SetWindowPosition(position);
     }
 
     protected override void OnFinalize
@@ -204,12 +207,6 @@ public sealed unsafe class InputStringAddon : NativeAddon
 
         UpdateInputLayout();
 
-        var screenSize  = (Vector2)AtkStage.Instance()->ScreenSize;
-        var maxPosition = Vector2.Max(Vector2.Zero, screenSize - Size);
-        var position = options.Position is { } addonPosition ?
-                           Vector2.Clamp(GetWindowPosition(addonPosition, RootNode.Node->GetNodeState().Size), Vector2.Zero, maxPosition) :
-                           maxPosition / 2.0f;
-        openPosition = position;
     }
 
     private void UpdateInputLayout()
@@ -306,7 +303,6 @@ public sealed unsafe class InputStringAddon : NativeAddon
 
 
     private readonly InputStringAddonOptions options;
-    private          Vector2?                openPosition;
     private          bool                    hasResult;
 
     private TextNode?               PromptNode    { get; set; }

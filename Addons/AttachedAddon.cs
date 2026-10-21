@@ -20,6 +20,20 @@ public abstract class AttachedAddon : NativeAddon
         Vector2.Zero;
 
     /// <summary>
+    /// 相对于宿主界面缩放的倍率；界面就绪时修改会立即生效。
+    /// </summary>
+    protected unsafe float ScaleMultiplier
+    {
+        get;
+        set
+        {
+            field = value;
+            if (IsAllocated && InternalAddon->IsReady)
+                InternalAddon->SetScale(HostAddon->Scale * value / AtkUnitBase.GetGlobalUIScale(), true);
+        }
+    } = 1f;
+
+    /// <summary>
     /// 是否跟随 HostAddon 自动开关。<br/>
     /// 自动开关条件见：<seealso cref="CanOpenAddon"/>。<br/>
     /// 关闭此属性后，使用 Open、Close 或 Toggle 控制面板。
@@ -153,8 +167,9 @@ public abstract class AttachedAddon : NativeAddon
         if (addon->DepthLayer != host->DepthLayer)
             addon->SetDepthLayer(host->DepthLayer);
 
-        if (MathF.Abs(addon->Scale - host->Scale) > 0.0001f)
-            addon->SetScale(host->Scale / AtkUnitBase.GetGlobalUIScale(), true);
+        var scale = host->Scale * ScaleMultiplier;
+        if (MathF.Abs(addon->Scale - scale) > 0.0001f)
+            addon->SetScale(scale / AtkUnitBase.GetGlobalUIScale(), true);
 
         if (addon->Alpha != host->Alpha)
             addon->SetAlpha(host->Alpha);
@@ -227,6 +242,13 @@ public abstract class AttachedAddon : NativeAddon
         backgroundImage?.Size    = Vector2.Max(backgroundTexture.Size - new Vector2(8f, 16f), Vector2.Zero);
     }
 
+    /// <remarks>继承必须要调用 base.OnSetupComplete(...)</remarks>
+    protected override unsafe void OnSetupComplete
+    (
+        AtkUnitBase* addon
+    )
+        => addon->SetScale(HostAddon->Scale * ScaleMultiplier / AtkUnitBase.GetGlobalUIScale(), true);
+
     /// <remarks>继承必须要调用 base.OnFinalize(...)</remarks>
     protected override unsafe void OnFinalize
     (
@@ -293,6 +315,7 @@ public abstract class AttachedAddon : NativeAddon
         }
     }
 
+    /// <remarks>继承必须要调用 base.Open(...)</remarks>
     public override unsafe void Open()
     {
         ObjectDisposedException.ThrowIf(isDisposed, this);
@@ -322,7 +345,6 @@ public abstract class AttachedAddon : NativeAddon
         InternalAddon->DisableShowHideSoundEffects = true;
         InternalAddon->UiFlags                     = host->UiFlags;
         InternalAddon->IgnoreUIDisplayMode         = host->IgnoreUIDisplayMode;
-        InternalAddon->SetScale(host->Scale / AtkUnitBase.GetGlobalUIScale(), true);
         InternalAddon->Open(host->DepthLayer);
     }
 
