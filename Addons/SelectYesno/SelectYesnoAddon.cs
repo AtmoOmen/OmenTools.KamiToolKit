@@ -60,6 +60,9 @@ public sealed unsafe class SelectYesnoAddon : NativeAddon
     {
         hasResult = false;
 
+        addon->SetOpenTransition(0.1f, 0, 30, 1.0f);
+        addon->SetCloseTransition(0.1f, 0, 30, 1.0f);
+
         if (WindowNode is WindowNode window)
         {
             window.ShowCloseButton               = true;
