@@ -2,6 +2,7 @@ using System.Numerics;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Plugin.Services;
+using FFXIVClientStructs.FFXIV.Client.System.Input;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
 using KamiToolKit.Enums;
@@ -41,6 +42,9 @@ public abstract class AttachedAddon : NativeAddon
     /// <remarks>当 HostAddon 关闭时，一定会跟随关闭。</remarks>
     protected virtual bool AutoOpenAddon =>
         true;
+
+    protected virtual bool CloseOnEsc =>
+        false;
 
     protected virtual bool CanOpenAddon =>
         true;
@@ -101,6 +105,7 @@ public abstract class AttachedAddon : NativeAddon
                      AddonEvent.PreFinalize
                  }.Concat(hostAddonEvents).Distinct())
             IAddonLifecycle.Instance().RegisterListener(eventType, hostAddon, OnHostAddonLifecycle);
+
     }
 
     /// <remarks>继承必须要调用 base.Dispose(...)</remarks>
@@ -138,6 +143,21 @@ public abstract class AttachedAddon : NativeAddon
         AtkEventData* atkEventData
     )
     {
+        if (eventType == AtkEventType.InputReceived && atkEvent->Target == (AtkEventTarget*)AtkStage.Instance())
+        {
+            if (!AutoOpenAddon   &&
+                CloseOnEsc       &&
+                IsRequestedOpen  &&
+                addon->IsVisible &&
+                atkEventData->InputData is { InputId: (int)InputId.ESC, State: InputState.Down })
+            {
+                atkEvent->SetEventIsHandled(true);
+                Close();
+            }
+
+            return;
+        }
+
         if (eventType is not (AtkEventType.InputReceived or AtkEventType.InputNavigation))
         {
             base.OnReceiveGlobalEvent(addon, eventType, eventParam, atkEvent, atkEventData);
@@ -247,7 +267,15 @@ public abstract class AttachedAddon : NativeAddon
     (
         AtkUnitBase* addon
     )
-        => addon->SetScale(HostAddon->Scale * ScaleMultiplier / AtkUnitBase.GetGlobalUIScale(), true);
+    {
+        addon->SetScale(HostAddon->Scale * ScaleMultiplier / AtkUnitBase.GetGlobalUIScale(), true);
+
+        if (!AutoOpenAddon && CloseOnEsc)
+        {
+            var stage = AtkStage.Instance();
+            stage->ViewportEventManager.RegisterEvent(AtkEventType.InputReceived, 0, null, (AtkEventTarget*)stage, (AtkEventListener*)addon, true);
+        }
+    }
 
     /// <remarks>继承必须要调用 base.OnFinalize(...)</remarks>
     protected override unsafe void OnFinalize
@@ -255,6 +283,8 @@ public abstract class AttachedAddon : NativeAddon
         AtkUnitBase* addon
     )
     {
+        AtkStage.Instance()->ViewportEventManager.UnregisterEvent(AtkEventType.InputReceived, 0, (AtkEventListener*)addon, true);
+
         if (!isClosing)
         {
             IsRequestedOpen = false;
@@ -339,7 +369,6 @@ public abstract class AttachedAddon : NativeAddon
             return;
         }
 
-        InternalAddon->DisableUnfocusedCloseOnEsc  = true;
         InternalAddon->DisableFocusOnShow          = true;
         InternalAddon->DisableCloseOnLoadScreen    = true;
         InternalAddon->DisableShowHideSoundEffects = true;
