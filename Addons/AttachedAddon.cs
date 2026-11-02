@@ -9,6 +9,7 @@ using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
 using OmenTools.Extensions;
+using OmenTools.KamiToolKit.Styles;
 
 namespace OmenTools.KamiToolKit.Addons;
 
@@ -43,6 +44,24 @@ public abstract class AttachedAddon : NativeAddon
     protected virtual bool AutoOpenAddon =>
         true;
 
+    /// <summary>附加面板的界面风格；指定后使用无标题栏的风格窗口，内容边距由风格与 ContentPadding 共同决定。</summary>
+    public UIStyle? Style
+    {
+        get;
+        init
+        {
+            field = value;
+            if (value is null)
+                return;
+
+            HasWindowNode    = true;
+            CreateWindowNode = () => value.CreateWindow(false);
+        }
+    }
+
+    protected virtual bool HasBackground =>
+        Style is null;
+
     protected virtual bool CloseOnEsc =>
         false;
 
@@ -61,10 +80,18 @@ public abstract class AttachedAddon : NativeAddon
     public bool IsRequestedOpen { get; private set; }
 
     public override Vector2 ContentStartPosition =>
-        new Vector2(4f, 4f) + ContentPadding;
+        Style is { } style ?
+            new Vector2(style.ContentInsets.X, style.ContentInsets.Y) + ContentPadding :
+            new Vector2(4f,                    4f)                    + ContentPadding;
 
     public override Vector2 ContentSize =>
-        Size - new Vector2(8f, 16f) - (ContentPadding * 2f);
+        Style is { } style ?
+            Vector2.Max
+            (
+                Vector2.Zero,
+                Size - new Vector2(style.ContentInsets.X + style.ContentInsets.Z, style.ContentInsets.Y + style.ContentInsets.W) - (ContentPadding * 2f)
+            ) :
+            Size - new Vector2(8f, 16f) - (ContentPadding * 2f);
 
     protected unsafe AtkUnitBase* HostAddon =>
         (AtkUnitBase*)IGameGui.Instance().GetAddonByName(hostAddonName).Address;
@@ -209,7 +236,7 @@ public abstract class AttachedAddon : NativeAddon
 
         openCompletion.TrySetResult();
 
-        if (backgroundTexture is null)
+        if (HasBackground && backgroundTexture is null)
         {
             backgroundTexture = new WindowBackgroundTextureNode(false)
             {
@@ -256,6 +283,9 @@ public abstract class AttachedAddon : NativeAddon
                                new Vector2(host->X,           host->Y) :
                                new Vector2(host->RootNode->X, host->RootNode->Y);
         SetWindowPosition(hostPosition + (position * addon->Scale) + PositionOffset);
+        if (backgroundTexture is null)
+            return;
+
         var backgroundHeight = MathF.Max(Size.Y, backgroundTexture.PartsList[0]->Height + backgroundTexture.PartsList[6]->Height);
         backgroundTexture.Size   = Size with { Y = backgroundHeight };
         backgroundTexture.ScaleY = Size.Y / backgroundHeight;
